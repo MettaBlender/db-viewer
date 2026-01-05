@@ -1,65 +1,112 @@
-import Image from "next/image";
+'use client'
+
+import { useState } from "react";
 
 export default function Home() {
+
+  const [dbURL, setDBURL] = useState({
+    user: "nicuser",
+    pw: "nicpassword",
+    url: "localhost:5432",
+    db: "postgresql"
+  })
+  const [dbs, setDBs] = useState([])
+  const [db, setDB] = useState([])
+  const [table, setTable] = useState(null)
+  const [tableHead, setTableHead] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const loadDBs = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/loaddbs",{
+        method: "POST",
+        body: JSON.stringify(dbURL)
+      })
+      const data = await response.json()
+      setDBs(data.db)
+    } catch (e) {
+
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadDB = async (db) => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/loaddb?db=${db}`,{
+        method: "POST",
+        body: JSON.stringify(dbURL)
+      })
+      const data = await response.json()
+      setDBURL({...dbURL, db: db})
+      setDB(data.db)
+    } catch (e) {
+
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadTable = async (table) => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/loadtable?table=${table}`,{
+        method: "POST",
+        body: JSON.stringify(dbURL)
+      })
+      const data = await response.json()
+      setTable(data.table)
+      setTableHead(Object.keys(data.table[0]))
+    } catch (e) {
+
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex min-h-screen overflow-auto bg-zinc-50 font-sans text-black">
+      <div className="h-screen w-1/6 bg-zinc-300 flex flex-col items-center justify-start">
+        {dbs.map((db, index) => (
+          <button key={index} onClick={() => {loadDB(db.datname)}}>{db.datname}</button>
+        ))}
+        <div className="h-16"/>
+        {db.map((db, index) => (
+          <button key={index} onClick={() => {loadTable(db.tablename)}}>{db.tablename}</button>
+        ))}
+      </div>
+      <div className="flex flex-col">
+        <div>
+        <input value={dbURL.user} onChange={(e) => {setDBURL({...dbURL, user: e.target.value})}} className="ring ring-black text-black"/>
+        <input value={dbURL.pw} onChange={(e) => {setDBURL({...dbURL, pw: e.target.value})}} className="ring ring-black text-black"/>
+        <input value={dbURL.url} onChange={(e) => {setDBURL({...dbURL, url: e.target.value})}} className="ring ring-black text-black"/>
+        <button onClick={loadDBs}>DB Laden</button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        {loading && <p>Loading...</p>}
+        {table && <table className="min-w-full text-sm text-left rtl:text-right text-body">
+          <thead className="bg-neutral-secondary-soft border-b border-default">
+            <tr>
+              {tableHead.map((row) => (
+                <th scope="col" className="px-6 py-3 font-medium">{row}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {table.map((rows)=>{
+              return (
+                <tr className="odd:bg-zinc-700 even:bg-zinc-300 odd:text-white border-b border-default">
+                  {tableHead.map((head) => (
+                    <td className="px-6 py-4">
+                      {rows[head]}
+                    </td>
+                  ))}
+                </tr>
+            )})}
+          </tbody>
+        </table>}
+      </div>
     </div>
   );
 }
