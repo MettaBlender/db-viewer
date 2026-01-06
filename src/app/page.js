@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
 
@@ -8,15 +8,18 @@ export default function Home() {
     user: "nicuser",
     pw: "nicpassword",
     url: "localhost:5432",
+    ssl: false,
     db: "postgresql"
   })
   const [dbs, setDBs] = useState([])
   const [db, setDB] = useState([])
   const [table, setTable] = useState(null)
+  const [tableName, setTableName] = useState("")
   const [tableOld, setTableOld] = useState(null)
   const [tableHead, setTableHead] = useState(null)
   const [loading, setLoading] = useState(false)
   const [countChanges, setCountChanges] = useState(0)
+  const [checked, setChecked] = useState([])
 
   useEffect(() => {
     searchChanges()
@@ -60,6 +63,7 @@ export default function Home() {
     try {
       setLoading(true)
       setCountChanges(0)
+      setChecked([])
       const response = await fetch(`/api/loadtable?table=${table}`,{
         method: "POST",
         body: JSON.stringify(dbURL)
@@ -67,7 +71,43 @@ export default function Home() {
       const data = await response.json()
       setTable(data.table)
       setTableOld(data.table)
+      setTableName(table)
       setTableHead(Object.keys(data.table[0]))
+    } catch (e) {
+
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateTable = async () => {
+    try {
+      setLoading(true)
+      setCountChanges(0)
+      const response = await fetch(`/api/updateTable?table=${tableName}`,{
+        method: "POST",
+        body: JSON.stringify({...dbURL, values: table})
+      })
+      const data = await response.json()
+      setTable(data.table)
+      setTableOld(data.table)
+      setTableHead(Object.keys(data.table[0]))
+    } catch (e) {
+
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const deleteRow = async () => {
+    try {
+      setLoading(true)
+      setCountChanges(0)
+      await fetch(`/api/deleteRow?table=${tableName}`,{
+        method: "POST",
+        body: JSON.stringify({...dbURL, values: checked})
+      })
+      await loadTable(tableName)
     } catch (e) {
 
     } finally {
@@ -159,32 +199,48 @@ export default function Home() {
           <input value={dbURL.user} onChange={(e) => {setDBURL({...dbURL, user: e.target.value})}} className="ring ring-black text-black"/>
           <input value={dbURL.pw} onChange={(e) => {setDBURL({...dbURL, pw: e.target.value})}} className="ring ring-black text-black"/>
           <input value={dbURL.url} onChange={(e) => {setDBURL({...dbURL, url: e.target.value})}} className="ring ring-black text-black"/>
+          <input checked={dbURL.ssl} onChange={(e) => {setDBURL({...dbURL, ssl: e.target.checked})}} type="checkbox" className="ring ring-black text-black"/>
           <button onClick={loadDBs}>DB Laden</button>
         </div>
-        <div>
+        <div className="flex gap-2">
           <p>{countChanges}</p>
+          <button onClick={() => setTable(tableOld)}>Discard Changes</button>
+          <button onClick={() => updateTable()}>Update</button>
+          <button onClick={() => deleteRow()}>Delete Selected</button>
         </div>
         {loading && <p>Loading...</p>}
         {table && tableHead && <table className="min-w-full text-sm text-left rtl:text-right text-body mt-4">
           <thead className="bg-neutral-secondary-soft border-b border-default">
             <tr>
               <th className="px-2 py-0.5 border">
-                <input type="checkbox"/>
+                <input
+                  type="checkbox"
+                  checked={table.every(row => checked.includes(row.id))}
+                  onChange={(e) => setChecked(e.target.checked ? table.map(row => row.id) : [])}
+                />
               </th>
-              {tableHead.map((row) => (
-                <th scope="col" className="px-9 py-0.5 border font-medium">{row}</th>
+              {tableHead.map((row, index) => (
+                <th scope="col" key={index} className="px-9 py-0.5 border font-medium">{row}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {table.map((rows, rowIndex)=>{
               return (
-                <tr className="">
+                <tr className="" key={rowIndex}>
                   <td className="px-2 py-0.5 border">
-                    <input type="checkbox"/>
+                    <input
+                      type="checkbox"
+                      checked={checked.includes(rows["id"])}
+                      onClick={(e) => setChecked(
+                        e.target.checked
+                          ? [...checked, rows["id"]]
+                          : checked.filter(id => id !== rows["id"])
+                      )}
+                    />
                   </td>
-                  {tableHead.map((head) => (
-                    <td className="border">
+                  {tableHead.map((head, index) => (
+                    <td className="border" key={index}>
                       <input
                         value={rows[head]}
                         type={typeof rows[head] === 'number' ? 'number' : 'text'}
