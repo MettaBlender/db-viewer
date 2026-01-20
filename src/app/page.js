@@ -194,7 +194,7 @@ export default function Home() {
           <button key={index} onClick={() => {loadTable(db.tablename)}}>{db.tablename}</button>
         ))}
       </div>
-      <div className="flex flex-col w-[88dvw] overflow-auto px-2">
+      <div className="flex flex-col w-fit overflow-auto px-2">
         <div className="flex gap-2">
           <input value={dbURL.user} onChange={(e) => {setDBURL({...dbURL, user: e.target.value})}} className="ring ring-black text-black"/>
           <input value={dbURL.pw} onChange={(e) => {setDBURL({...dbURL, pw: e.target.value})}} className="ring ring-black text-black"/>
