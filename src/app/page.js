@@ -185,7 +185,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen bg-zinc-50 font-sans text-black">
-      <div className="h-screen w-[12dvw] bg-zinc-300 flex flex-col items-center justify-start">
+      <div className="h-screen min-w-[12dvw] w-fit px-2 bg-zinc-300 flex flex-col items-center justify-start">
         {dbs.map((db, index) => (
           <button key={index} onClick={() => {loadDB(db.datname)}}>{db.datname}</button>
         ))}
@@ -194,21 +194,22 @@ export default function Home() {
           <button key={index} onClick={() => {loadTable(db.tablename)}}>{db.tablename}</button>
         ))}
       </div>
-      <div className="flex flex-col w-[88dvw] overflow-auto">
-        <div>
+      <div className="flex flex-col w-[88dvw] overflow-auto px-2">
+        <div className="flex gap-2">
           <input value={dbURL.user} onChange={(e) => {setDBURL({...dbURL, user: e.target.value})}} className="ring ring-black text-black"/>
           <input value={dbURL.pw} onChange={(e) => {setDBURL({...dbURL, pw: e.target.value})}} className="ring ring-black text-black"/>
           <input value={dbURL.url} onChange={(e) => {setDBURL({...dbURL, url: e.target.value})}} className="ring ring-black text-black"/>
-          <input checked={dbURL.ssl} onChange={(e) => {setDBURL({...dbURL, ssl: e.target.checked})}} type="checkbox" className="ring ring-black text-black"/>
-          <button onClick={loadDBs}>DB Laden</button>
+          <input checked={dbURL.ssl} onChange={(e) => {setDBURL({...dbURL, ssl: e.target.checked})}} type="checkbox" className=" text-black"/>
+          <button onClick={loadDBs} className="ring">DB Laden</button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-2">
           <p>{countChanges}</p>
-          <button onClick={() => setTable(tableOld)}>Discard Changes</button>
-          <button onClick={() => updateTable()}>Update</button>
-          <button onClick={() => deleteRow()}>Delete Selected</button>
+          <button onClick={() => setTable(tableOld)} className="ring">Discard Changes</button>
+          <button onClick={() => updateTable()} className="ring">Update</button>
+          <button onClick={() => deleteRow()} className="ring">Delete Selected</button>
         </div>
         {loading && <p>Loading...</p>}
+        {table && <p className="font-bold mt-2 text-2xl">{tableName}</p>}
         {table && tableHead && <table className="min-w-full text-sm text-left rtl:text-right text-body mt-4">
           <thead className="bg-neutral-secondary-soft border-b border-default">
             <tr>
