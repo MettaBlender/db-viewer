@@ -194,7 +194,7 @@ export default function Home() {
           <button key={index} onClick={() => {loadTable(db.tablename)}}>{db.tablename}</button>
         ))}
       </div>
-      <div className="flex flex-col w-fit overflow-auto px-2">
+      <div className="flex flex-col w-full overflow-auto px-2">
         <div className="flex gap-2">
           <input value={dbURL.user} onChange={(e) => {setDBURL({...dbURL, user: e.target.value})}} className="ring ring-black text-black"/>
           <input value={dbURL.pw} onChange={(e) => {setDBURL({...dbURL, pw: e.target.value})}} className="ring ring-black text-black"/>
@@ -210,49 +210,53 @@ export default function Home() {
         </div>
         {loading && <p>Loading...</p>}
         {table && <p className="font-bold mt-2 text-2xl">{tableName}</p>}
-        {table && tableHead && <table className="min-w-full text-sm text-left rtl:text-right text-body mt-4">
-          <thead className="bg-neutral-secondary-soft border-b border-default">
-            <tr>
-              <th className="px-2 py-0.5 border">
-                <input
-                  type="checkbox"
-                  checked={table.every(row => checked.includes(row.id))}
-                  onChange={(e) => setChecked(e.target.checked ? table.map(row => row.id) : [])}
-                />
-              </th>
-              {tableHead.map((row, index) => (
-                <th scope="col" key={index} className="px-9 py-0.5 border font-medium">{row}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {table.map((rows, rowIndex)=>{
-              return (
-                <tr className="" key={rowIndex}>
-                  <td className="px-2 py-0.5 border">
-                    <input
-                      type="checkbox"
-                      checked={checked.includes(rows["id"])}
-                      onClick={(e) => setChecked(
-                        e.target.checked
-                          ? [...checked, rows["id"]]
-                          : checked.filter(id => id !== rows["id"])
-                      )}
-                    />
-                  </td>
-                  {tableHead.map((head, index) => (
-                    <td className="border" key={index}>
+
+        {table && tableHead && <div className="wfull overflow-auto">
+          <table className="min-w-full text-sm text-left rtl:text-right text-body mt-4">
+            <thead className="bg-neutral-secondary-soft border-b border-default">
+              <tr>
+                <th className="px-2 py-0.5 border">
+                  <input
+                    type="checkbox"
+                    checked={table.every(row => checked.includes(row.id))}
+                    onChange={(e) => setChecked(e.target.checked ? table.map(row => row.id) : [])}
+                  />
+                </th>
+                {tableHead.map((row, index) => (
+                  <th scope="col" key={index} className="px-9 py-0.5 border font-medium">{row}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.map((rows, rowIndex)=>{
+                return (
+                  <tr className="" key={rowIndex}>
+                    <td className="px-2 py-0.5 border">
                       <input
-                        value={rows[head]}
-                        type={typeof rows[head] === 'number' ? 'number' : 'text'}
-                        onChange={(e) => checkChanges(e, rowIndex, head, typeof rows[head] === 'number')}
-                        className="px-2 py-0.5" />
+                        type="checkbox"
+                        checked={checked.includes(rows["id"])}
+                        onClick={(e) => setChecked(
+                          e.target.checked
+                            ? [...checked, rows["id"]]
+                            : checked.filter(id => id !== rows["id"])
+                        )}
+                      />
                     </td>
-                  ))}
-                </tr>
-            )})}
-          </tbody>
-        </table>}
+                    {tableHead.map((head, index) => (
+                      <td className="border" key={index}>
+                        <input
+                          value={rows[head]}
+                          type={typeof rows[head] === 'number' ? 'number' : 'text'}
+                          onChange={(e) => checkChanges(e, rowIndex, head, typeof rows[head] === 'number')}
+                          className="px-2 py-0.5" />
+                      </td>
+                    ))}
+                  </tr>
+              )})}
+            </tbody>
+          </table>
+        </div>
+        }
       </div>
     </div>
   );
