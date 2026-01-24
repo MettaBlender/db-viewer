@@ -25,6 +25,15 @@ export default function Home() {
     searchChanges()
   }, [table])
 
+  useEffect(() => {
+    setDBURL({
+      user: localStorage.getItem("username") ?? "test",
+      pw: localStorage.getItem("password") ?? "test",
+      url: localStorage.getItem("url") ?? "localhost:5432",
+      ssl: localStorage.getItem("ssl") ?? false
+    })
+  }, [])
+
 
   const loadDBs = async () => {
     try {
@@ -35,6 +44,10 @@ export default function Home() {
       })
       const data = await response.json()
       setDBs(data.db)
+      localStorage.setItem("username", dbURL.user)
+      localStorage.setItem("password", dbURL.pw)
+      localStorage.setItem("url", dbURL.url)
+      localStorage.setItem("ssl", dbURL.ssl)
     } catch (e) {
 
     } finally {
@@ -211,11 +224,11 @@ export default function Home() {
         {loading && <p>Loading...</p>}
         {table && <p className="font-bold mt-2 text-2xl">{tableName}</p>}
 
-        {table && tableHead && <div className="wfull overflow-auto">
+        {table && tableHead && <div className="w-full overflow-auto">
           <table className="min-w-full text-sm text-left rtl:text-right text-body mt-4">
-            <thead className="bg-neutral-secondary-soft border-b border-default">
+            <thead className="bg-neutral-secondary-soft relative">
               <tr>
-                <th className="px-2 py-0.5 border">
+                <th className="px-2 py-0.5 border sticky top-0 left-0 bg-gray-600/50">
                   <input
                     type="checkbox"
                     checked={table.every(row => checked.includes(row.id))}
@@ -231,7 +244,7 @@ export default function Home() {
               {table.map((rows, rowIndex)=>{
                 return (
                   <tr className="" key={rowIndex}>
-                    <td className="px-2 py-0.5 border">
+                    <td className="px-2 py-0.5 border sticky top-0 left-0 bg-gray-600/50">
                       <input
                         type="checkbox"
                         checked={checked.includes(rows["id"])}
