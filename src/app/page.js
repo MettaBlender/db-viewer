@@ -261,7 +261,7 @@ export default function Home() {
                           value={rows[head]}
                           type={typeof rows[head] === 'number' ? 'number' : 'text'}
                           onChange={(e) => checkChanges(e, rowIndex, head, typeof rows[head] === 'number')}
-                          className="px-2 py-0.5" />
+                          className="px-2 py-0.5 w-full" />
                       </td>
                     ))}
                   </tr>
