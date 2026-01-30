@@ -198,7 +198,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen bg-zinc-50 font-sans text-black">
-      <div className="h-screen min-w-[12dvw] w-fit px-2 bg-zinc-300 flex flex-col items-center justify-start">
+      <div className="sticky top-0 h-screen min-w-[12dvw] w-fit px-2 bg-zinc-300 flex flex-col items-center justify-start">
         {dbs.map((db, index) => (
           <button key={index} onClick={() => {loadDB(db.datname)}}>{db.datname}</button>
         ))}
