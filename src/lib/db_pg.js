@@ -33,8 +33,121 @@ export async function getDB(user, pw, url, ssl, db){
     ORDER BY schemaname, tablename;`,[], user, pw, url, ssl, db)
 }
 
-export async function getTable(user, pw, url, ssl, db, table){
-  return await executeSQL(`SELECT * FROM ${table}`,[], user, pw, url, ssl, db)
+export async function getTable(user, pw, url, ssl, db, table, limit = 50, offset = 0){
+  return await executeSQL(`SELECT * FROM ${table} ORDER BY id LIMIT $1 OFFSET $2`, [limit, offset], user, pw, url, ssl, db)
+}
+
+export async function getTableCount(user, pw, url, ssl, db, table){
+  return await executeSQL(`SELECT COUNT(*) FROM ${table}`, [], user, pw, url, ssl, db)
+}
+
+export async function getTableSchema(user, pw, url, ssl, db, table){
+  return await executeSQL(`
+    SELECT
+      column_name,
+      data_type,
+      is_nullable,
+      column_default
+    FROM information_schema.columns
+    WHERE table_name = $1
+    ORDER BY ordinal_position
+  `, [table], user, pw, url, ssl, db)
+}
+
+export async function alterTableSchema(user, pw, url, ssl, db, table, changes){
+  const pool = await generatePool(user, pw, url, ssl, db)
+  const client = await pool.connect()
+
+  try {
+    await client.query('BEGIN');
+
+    for (const change of changes) {
+      let sql = '';
+
+      switch (change.action) {
+        case 'ADD':
+          // Check if column already exists
+          const addCheckResult = await client.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = $1 AND column_name = $2
+          `, [table, change.columnName]);
+
+          if (addCheckResult.rows.length === 0) {
+            sql = `ALTER TABLE ${table} ADD COLUMN ${change.columnName} ${change.dataType}`;
+            if (!change.nullable) sql += ' NOT NULL';
+            if (change.default) sql += ` DEFAULT ${change.default}`;
+          } else {
+            console.log(`Column ${change.columnName} already exists, skipping ADD`);
+            continue;
+          }
+          break;
+
+        case 'DROP':
+          // Check if column exists before dropping
+          const dropCheckResult = await client.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = $1 AND column_name = $2
+          `, [table, change.columnName]);
+
+          if (dropCheckResult.rows.length > 0) {
+            sql = `ALTER TABLE ${table} DROP COLUMN IF EXISTS ${change.columnName}`;
+          } else {
+            console.log(`Column ${change.columnName} does not exist, skipping DROP`);
+            continue;
+          }
+          break;
+
+        case 'RENAME':
+          // Check if old column exists
+          const renameCheckResult = await client.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = $1 AND column_name = $2
+          `, [table, change.oldColumnName]);
+
+          if (renameCheckResult.rows.length > 0) {
+            sql = `ALTER TABLE ${table} RENAME COLUMN ${change.oldColumnName} TO ${change.newColumnName}`;
+          } else {
+            console.log(`Column ${change.oldColumnName} does not exist, skipping RENAME`);
+            continue;
+          }
+          break;
+
+        case 'ALTER_TYPE':
+          // Check if column exists before altering type
+          const typeCheckResult = await client.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = $1 AND column_name = $2
+          `, [table, change.columnName]);
+
+          if (typeCheckResult.rows.length > 0) {
+            sql = `ALTER TABLE ${table} ALTER COLUMN ${change.columnName} TYPE ${change.dataType}`;
+          } else {
+            console.log(`Column ${change.columnName} does not exist, skipping ALTER TYPE`);
+            continue;
+          }
+          break;
+
+        default:
+          throw new Error(`Unknown action: ${change.action}`);
+      }
+
+      if (sql) {
+        await client.query(sql);
+      }
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Schema alteration error:', err);
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateTable(user, pw, url, ssl, db, table, values){
