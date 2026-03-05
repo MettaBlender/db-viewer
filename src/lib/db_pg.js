@@ -76,7 +76,9 @@ export async function alterTableSchema(user, pw, url, ssl, db, table, changes){
           if (addCheckResult.rows.length === 0) {
             sql = `ALTER TABLE ${table} ADD COLUMN ${change.columnName} ${change.dataType}`;
             if (!change.nullable) sql += ' NOT NULL';
-            if (change.default) sql += ` DEFAULT ${change.default}`;
+            if (change.default !== undefined && change.default !== null && change.default !== '') {
+              sql += ` DEFAULT ${change.default}`;
+            }
           } else {
             console.log(`Column ${change.columnName} already exists, skipping ADD`);
             continue;
@@ -127,6 +129,26 @@ export async function alterTableSchema(user, pw, url, ssl, db, table, changes){
             sql = `ALTER TABLE ${table} ALTER COLUMN ${change.columnName} TYPE ${change.dataType}`;
           } else {
             console.log(`Column ${change.columnName} does not exist, skipping ALTER TYPE`);
+            continue;
+          }
+          break;
+
+        case 'ALTER_DEFAULT':
+          // Check if column exists before altering default
+          const defaultCheckResult = await client.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = $1 AND column_name = $2
+          `, [table, change.columnName]);
+
+          if (defaultCheckResult.rows.length > 0) {
+            if (change.default === undefined || change.default === null || change.default === '') {
+              sql = `ALTER TABLE ${table} ALTER COLUMN ${change.columnName} DROP DEFAULT`;
+            } else {
+              sql = `ALTER TABLE ${table} ALTER COLUMN ${change.columnName} SET DEFAULT ${change.default}`;
+            }
+          } else {
+            console.log(`Column ${change.columnName} does not exist, skipping ALTER DEFAULT`);
             continue;
           }
           break;

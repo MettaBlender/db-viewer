@@ -439,7 +439,11 @@ export default function Home() {
 // Schema Editor Component
 function SchemaEditor({ schema, tableName, onUpdate, onClose }) {
   const [columns, setColumns] = useState(schema || []);
-  const [newColumn, setNewColumn] = useState({ name: '', type: 'TEXT', nullable: true });
+  const [newColumn, setNewColumn] = useState({ name: '', type: 'TEXT', nullable: true, defaultValue: '' });
+
+  useEffect(() => {
+    setColumns(schema || []);
+  }, [schema]);
 
   const addColumn = () => {
     if (!newColumn.name) return;
@@ -447,10 +451,11 @@ function SchemaEditor({ schema, tableName, onUpdate, onClose }) {
       action: 'ADD',
       columnName: newColumn.name,
       dataType: newColumn.type,
-      nullable: newColumn.nullable
+      nullable: newColumn.nullable,
+      default: newColumn.defaultValue
     };
     onUpdate([change]);
-    setNewColumn({ name: '', type: 'TEXT', nullable: true });
+    setNewColumn({ name: '', type: 'TEXT', nullable: true, defaultValue: '' });
   };
 
   const dropColumn = (columnName) => {
@@ -477,6 +482,15 @@ function SchemaEditor({ schema, tableName, onUpdate, onClose }) {
       action: 'ALTER_TYPE',
       columnName,
       dataType: newType
+    };
+    onUpdate([change]);
+  };
+
+  const changeDefault = (columnName, newDefault) => {
+    const change = {
+      action: 'ALTER_DEFAULT',
+      columnName,
+      default: newDefault
     };
     onUpdate([change]);
   };
@@ -518,6 +532,13 @@ function SchemaEditor({ schema, tableName, onUpdate, onClose }) {
             />
             Nullable
           </label>
+          <input
+            type="text"
+            placeholder="Default (z.B. 0, true, 'text')"
+            value={newColumn.defaultValue}
+            onChange={(e) => setNewColumn({...newColumn, defaultValue: e.target.value})}
+            className="ring ring-black px-2 py-1"
+          />
           <button onClick={addColumn} className="px-3 py-1 bg-green-500 text-white rounded">
             Hinzufügen
           </button>
@@ -542,6 +563,7 @@ function SchemaEditor({ schema, tableName, onUpdate, onClose }) {
                 column={col}
                 onRename={renameColumn}
                 onChangeType={changeType}
+                onChangeDefault={changeDefault}
                 onDrop={dropColumn}
               />
             ))}
@@ -552,9 +574,16 @@ function SchemaEditor({ schema, tableName, onUpdate, onClose }) {
   );
 }
 
-function ColumnRow({ column, onRename, onChangeType, onDrop }) {
+function ColumnRow({ column, onRename, onChangeType, onChangeDefault, onDrop }) {
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState(column.column_name);
+  const [defaultValue, setDefaultValue] = useState(column.column_default ?? '');
+  const [defaultDirty, setDefaultDirty] = useState(false);
+
+  useEffect(() => {
+    setDefaultValue(column.column_default ?? '');
+    setDefaultDirty(false);
+  }, [column.column_default]);
 
   return (
     <tr className="hover:bg-gray-50">
@@ -609,7 +638,32 @@ function ColumnRow({ column, onRename, onChangeType, onDrop }) {
         </select>
       </td>
       <td className="border px-2 py-1 text-center">{column.is_nullable}</td>
-      <td className="border px-2 py-1">{column.column_default || '-'}</td>
+      <td className="border px-2 py-1">
+        <div className="flex gap-1 items-center">
+          <input
+            type="text"
+            value={defaultValue}
+            onChange={(e) => {
+              setDefaultValue(e.target.value);
+              setDefaultDirty(true);
+            }}
+            className="ring ring-black px-1 py-0.5 text-sm w-full"
+          />
+          <button
+            onClick={() => {
+              const currentDefault = column.column_default ?? '';
+              if (defaultValue !== currentDefault) {
+                onChangeDefault(column.column_name, defaultValue);
+              }
+              setDefaultDirty(false);
+            }}
+            disabled={!defaultDirty}
+            className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            ✓
+          </button>
+        </div>
+      </td>
       <td className="border px-2 py-1">
         <button
           onClick={() => onDrop(column.column_name)}
