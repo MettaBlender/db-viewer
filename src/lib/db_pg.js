@@ -33,12 +33,81 @@ export async function getDB(user, pw, url, ssl, db){
     ORDER BY schemaname, tablename;`,[], user, pw, url, ssl, db)
 }
 
-export async function getTable(user, pw, url, ssl, db, table, limit = 50, offset = 0){
-  return await executeSQL(`SELECT * FROM ${table} ORDER BY id LIMIT $1 OFFSET $2`, [limit, offset], user, pw, url, ssl, db)
+export async function getTable(user, pw, url, ssl, db, table, limit = 50, offset = 0, search = "", searchColumn = "all") {
+  if (!search) {
+    return await executeSQL(`SELECT * FROM ${table} ORDER BY id LIMIT $1 OFFSET $2`, [limit, offset], user, pw, url, ssl, db)
+  }
+
+  const pool = await generatePool(user, pw, url, ssl, db)
+  const client = await pool.connect()
+  try {
+    // Fetch column names safely via parameterised query (prevents injection via table/column names)
+    const colsResult = await client.query(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_name = $1 AND table_schema NOT IN ('pg_catalog','information_schema')
+       ORDER BY ordinal_position`,
+      [table]
+    )
+    const columns = colsResult.rows.map(r => r.column_name)
+    if (columns.length === 0) throw new Error(`Table "${table}" not found`)
+
+    if (searchColumn !== "all" && !columns.includes(searchColumn)) {
+      throw new Error(`Invalid column: ${searchColumn}`)
+    }
+
+    const pattern = `%${search}%`
+    const whereClause = searchColumn === "all"
+      ? columns.map(col => `CAST("${col}" AS TEXT) ILIKE $3`).join(' OR ')
+      : `CAST("${searchColumn}" AS TEXT) ILIKE $3`
+
+    const result = await client.query(
+      `SELECT * FROM "${table}" WHERE ${whereClause} ORDER BY id LIMIT $1 OFFSET $2`,
+      [limit, offset, pattern]
+    )
+    client.release()
+    return result.rows
+  } catch (e) {
+    client.release()
+    throw e
+  }
 }
 
-export async function getTableCount(user, pw, url, ssl, db, table){
-  return await executeSQL(`SELECT COUNT(*) FROM ${table}`, [], user, pw, url, ssl, db)
+export async function getTableCount(user, pw, url, ssl, db, table, search = "", searchColumn = "all") {
+  if (!search) {
+    return await executeSQL(`SELECT COUNT(*) FROM ${table}`, [], user, pw, url, ssl, db)
+  }
+
+  const pool = await generatePool(user, pw, url, ssl, db)
+  const client = await pool.connect()
+  try {
+    const colsResult = await client.query(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_name = $1 AND table_schema NOT IN ('pg_catalog','information_schema')
+       ORDER BY ordinal_position`,
+      [table]
+    )
+    const columns = colsResult.rows.map(r => r.column_name)
+    if (columns.length === 0) throw new Error(`Table "${table}" not found`)
+
+    if (searchColumn !== "all" && !columns.includes(searchColumn)) {
+      throw new Error(`Invalid column: ${searchColumn}`)
+    }
+
+    const pattern = `%${search}%`
+    const whereClause = searchColumn === "all"
+      ? columns.map(col => `CAST("${col}" AS TEXT) ILIKE $1`).join(' OR ')
+      : `CAST("${searchColumn}" AS TEXT) ILIKE $1`
+
+    const result = await client.query(
+      `SELECT COUNT(*) FROM "${table}" WHERE ${whereClause}`,
+      [pattern]
+    )
+    client.release()
+    return result.rows
+  } catch (e) {
+    client.release()
+    throw e
+  }
 }
 
 export async function getTableSchema(user, pw, url, ssl, db, table){

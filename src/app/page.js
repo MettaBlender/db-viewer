@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 
 export default function Home() {
 
@@ -85,13 +85,21 @@ export default function Home() {
     }
   }
 
-  const loadTable = async (table, pageNum = 1) => {
+  // Debounce ref for search
+  const searchTimerRef = useRef(null)
+
+  const loadTable = async (table, pageNum = 1, search = "", column = "all") => {
     try {
       setLoading(true)
       setCountChanges(0)
       setChecked([])
       setPage(pageNum)
-      const response = await fetch(`/api/loadtable?table=${table}&page=${pageNum}&pageSize=${pageSize}`,{
+      const params = new URLSearchParams({ table, page: pageNum, pageSize })
+      if (search) {
+        params.set("search", search)
+        params.set("searchColumn", column)
+      }
+      const response = await fetch(`/api/loadtable?${params}`, {
         method: "POST",
         body: JSON.stringify(dbURL)
       })
@@ -250,26 +258,28 @@ export default function Home() {
     setCountChanges(abweichungen)
   }
 
-  // Filter table based on search
-  const filteredTable = useMemo(() => {
-    if (!table || !searchTerm) return table;
-
-    return table.filter(row => {
-      if (searchColumn === "all") {
-        return Object.values(row).some(value =>
-          String(value).toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      } else {
-        return String(row[searchColumn]).toLowerCase().includes(searchTerm.toLowerCase());
-      }
-    });
-  }, [table, searchTerm, searchColumn]);
-
   const totalPages = Math.ceil(totalRows / pageSize);
+
+  const handleSearchChange = (value) => {
+    setSearchTerm(value)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    if (!tableName) return
+    searchTimerRef.current = setTimeout(() => {
+      loadTable(tableName, 1, value, searchColumn)
+    }, 400)
+  }
+
+  const handleColumnChange = (col) => {
+    setSearchColumn(col)
+    if (!tableName) return
+    loadTable(tableName, 1, searchTerm, col)
+  }
 
   const handleTableClick = async (table) => {
     setSchemaMode(false)
-    await loadTable(table)
+    setSearchTerm("")
+    setSearchColumn("all")
+    await loadTable(table, 1, "", "all")
     await loadSchema(table)
   }
 
@@ -312,12 +322,12 @@ export default function Home() {
               type="text"
               placeholder="Suchen..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="ring ring-black px-2 py-1 flex-1 max-w-md"
             />
             <select
               value={searchColumn}
-              onChange={(e) => setSearchColumn(e.target.value)}
+              onChange={(e) => handleColumnChange(e.target.value)}
               className="ring ring-black px-2 py-1"
             >
               <option value="all">Alle Spalten</option>
@@ -326,7 +336,7 @@ export default function Home() {
               ))}
             </select>
             {searchTerm && (
-              <button onClick={() => setSearchTerm("")} className="px-2 py-1 bg-gray-300 rounded">
+              <button onClick={() => { setSearchTerm(""); loadTable(tableName, 1, "", searchColumn) }} className="px-2 py-1 bg-gray-300 rounded">
                 Clear
               </button>
             )}
@@ -337,7 +347,7 @@ export default function Home() {
         {table && !schemaMode && (
           <div className="flex gap-2 mt-2 items-center">
             <button
-              onClick={() => loadTable(tableName, Math.max(1, page - 1))}
+              onClick={() => loadTable(tableName, Math.max(1, page - 1), searchTerm, searchColumn)}
               disabled={page === 1}
               className="ring px-2 py-1 disabled:opacity-50"
             >
@@ -345,7 +355,7 @@ export default function Home() {
             </button>
             <span>Seite {page} von {totalPages} ({totalRows} Zeilen)</span>
             <button
-              onClick={() => loadTable(tableName, Math.min(totalPages, page + 1))}
+              onClick={() => loadTable(tableName, Math.min(totalPages, page + 1), searchTerm, searchColumn)}
               disabled={page >= totalPages}
               className="ring px-2 py-1 disabled:opacity-50"
             >
@@ -355,7 +365,7 @@ export default function Home() {
               value={pageSize}
               onChange={(e) => {
                 setPageSize(Number(e.target.value))
-                loadTable(tableName, 1)
+                loadTable(tableName, 1, searchTerm, searchColumn)
               }}
               className="ring ring-black px-2 py-1"
             >
@@ -389,8 +399,8 @@ export default function Home() {
                 <th className="px-2 py-0.5 border sticky top-0 left-0 bg-gray-600/50 z-10">
                   <input
                     type="checkbox"
-                    checked={filteredTable && filteredTable.length > 0 && filteredTable.every(row => checked.includes(row.id))}
-                    onChange={(e) => setChecked(e.target.checked ? filteredTable.map(row => row.id) : [])}
+                    checked={table && table.length > 0 && table.every(row => checked.includes(row.id))}
+                    onChange={(e) => setChecked(e.target.checked ? table.map(row => row.id) : [])}
                   />
                 </th>
                 {tableHead.map((row, index) => (
@@ -399,7 +409,7 @@ export default function Home() {
               </tr>
             </thead>
             <tbody>
-              {filteredTable && filteredTable.map((rows, rowIndex)=>{
+              {table && table.map((rows, rowIndex)=>{
                 return (
                   <tr className="hover:bg-gray-100" key={rowIndex}>
                     <td className="px-2 py-0.5 border sticky left-0 bg-white">
@@ -426,7 +436,7 @@ export default function Home() {
               )})}
             </tbody>
           </table>
-          {filteredTable && filteredTable.length === 0 && searchTerm && (
+          {table && table.length === 0 && searchTerm && (
             <p className="text-center py-4 text-gray-500">Keine Ergebnisse für "{searchTerm}"</p>
           )}
         </div>
